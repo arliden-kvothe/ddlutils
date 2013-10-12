@@ -2896,7 +2896,11 @@ public abstract class PlatformImplBase extends JdbcSupport implements Platform
         }
         else if (value instanceof String)
         {
-            statement.setString(sqlIndex, (String)value);
+			if (value.toString().length() > 100) {
+				statement.setObject(sqlIndex, (String) value, Types.LONGVARCHAR);
+			} else {
+				statement.setString(sqlIndex, (String) value);
+			}
         }
         else if (value instanceof byte[])
         {

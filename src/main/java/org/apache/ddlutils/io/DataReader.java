@@ -375,10 +375,10 @@ public class DataReader
 
         while (eventType != XMLStreamReader.END_ELEMENT)
         {
-            eventType = xmlReader.next();
+        	eventType = xmlReader.next();
             if (eventType == XMLStreamReader.START_ELEMENT)
             {
-                readColumnSubElement(xmlReader, data);
+            	readColumnSubElement(xmlReader, data);
             }
         }
     }
@@ -393,70 +393,78 @@ public class DataReader
     {
         QName   elemQName  = xmlReader.getName();
         Map     attributes = new HashMap();
+        
         boolean usesBase64 = false;
-
-        for (int idx = 0; idx < xmlReader.getAttributeCount(); idx++)
-        {
-            QName  attrQName = xmlReader.getAttributeName(idx);
-            String value     = xmlReader.getAttributeValue(idx);
-
-            if (DatabaseIO.BASE64_ATTR_NAME.equals(attrQName.getLocalPart()))
-            {
-                if ("true".equalsIgnoreCase(value))
-                {
-                    usesBase64 = true;
-                }
-            }
-            else
-            {
-                attributes.put(attrQName.getLocalPart(), value);
-            }
+        
+        if (xmlReader.getAttributeCount() == 0) {
+        	String key = isCaseSensitive() ? elemQName.getLocalPart() : elemQName.getLocalPart().toLowerCase();
+			String value = xmlReader.getElementText();
+        	data.put(key, value);
+        } else {
+        	for (int idx = 0; idx < xmlReader.getAttributeCount(); idx++)
+        	{
+        		QName  attrQName = xmlReader.getAttributeName(idx);
+        		String value     = xmlReader.getAttributeValue(idx);
+        		
+        		if (DatabaseIO.BASE64_ATTR_NAME.equals(attrQName.getLocalPart()))
+        		{
+        			if ("true".equalsIgnoreCase(value))
+        			{
+        				usesBase64 = true;
+        			}
+        		}
+        		else
+        		{
+        			attributes.put(attrQName.getLocalPart(), value);
+        		}
+        	}
+        	
+        	int          eventType = XMLStreamReader.START_ELEMENT;
+        	StringBuffer content   = new StringBuffer();
+        	
+        	while (eventType != XMLStreamReader.END_ELEMENT)
+        	{
+        		eventType = xmlReader.next();
+        		if (eventType == XMLStreamReader.START_ELEMENT)
+        		{
+        			readColumnDataSubElement(xmlReader, attributes);
+        		}
+        		else if ((eventType == XMLStreamReader.CHARACTERS) ||
+        				(eventType == XMLStreamReader.CDATA) ||
+        				(eventType == XMLStreamReader.SPACE) ||
+        				(eventType == XMLStreamReader.ENTITY_REFERENCE))
+        		{
+        			content.append(xmlReader.getText());
+        		}
+        	}
+        	
+        	String value = content.toString().trim();
+        	
+        	if (usesBase64)
+        	{
+        		value = new String(Base64.decodeBase64(value.getBytes()));
+        	}
+        	
+        	String name = elemQName.getLocalPart();
+        	
+        	if ("table-name".equals(name))
+        	{
+        		data.put("table-name", value);
+        	}
+        	else
+        	{
+        		if ("column".equals(name))
+        		{
+        			name = (String)attributes.get("column-name");
+        		}
+        		if (attributes.containsKey("column-value"))
+        		{
+        			value = (String)attributes.get("column-value");
+        		}
+        		data.put(name, value);
+        	}
         }
-
-        int          eventType = XMLStreamReader.START_ELEMENT;
-        StringBuffer content   = new StringBuffer();
-
-        while (eventType != XMLStreamReader.END_ELEMENT)
-        {
-            eventType = xmlReader.next();
-            if (eventType == XMLStreamReader.START_ELEMENT)
-            {
-                readColumnDataSubElement(xmlReader, attributes);
-            }
-            else if ((eventType == XMLStreamReader.CHARACTERS) ||
-                     (eventType == XMLStreamReader.CDATA) ||
-                     (eventType == XMLStreamReader.SPACE) ||
-                     (eventType == XMLStreamReader.ENTITY_REFERENCE))
-            {
-                content.append(xmlReader.getText());
-            }
-        }
-
-        String value = content.toString().trim();
-
-        if (usesBase64)
-        {
-            value = new String(Base64.decodeBase64(value.getBytes()));
-        }
-
-        String name = elemQName.getLocalPart();
-
-        if ("table-name".equals(name))
-        {
-            data.put("table-name", value);
-        }
-        else
-        {
-            if ("column".equals(name))
-            {
-                name = (String)attributes.get("column-name");
-            }
-            if (attributes.containsKey("column-value"))
-            {
-                value = (String)attributes.get("column-value");
-            }
-            data.put(name, value);
-        }
+        
         consumeRestOfElement(xmlReader);
     }
 
@@ -469,7 +477,7 @@ public class DataReader
      */
     private void readColumnDataSubElement(XMLStreamReader xmlReader, Map data) throws XMLStreamException, DdlUtilsXMLException
     {
-        QName   elemQName  = xmlReader.getName();
+    	QName   elemQName  = xmlReader.getName();
         boolean usesBase64 = false;
 
         for (int idx = 0; idx < xmlReader.getAttributeCount(); idx++)
